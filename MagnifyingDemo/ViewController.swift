@@ -24,6 +24,7 @@ class ViewController: UIViewController {
         
         self.loupe.magnifyView = self.view
         self.loupe.isHidden = true
+        self.loupe.maxFrame = CGRect(x: 50, y: 50, width: self.view.frame.size.width - 100, height: self.view.frame.size.height - 100)
         self.view.addSubview(self.loupe)
     }
 

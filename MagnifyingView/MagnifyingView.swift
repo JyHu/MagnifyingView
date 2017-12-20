@@ -7,26 +7,10 @@
 
 import UIKit
 
-fileprivate extension UIView {
-    
-    /// 私有方法，获取view的宽度
-    fileprivate var _width_:CGFloat {
-        get { return self.frame.size.width }
-    }
-    
-    /// 私有方法，获取view的高度
-    fileprivate var _height_:CGFloat {
-        get { return self.frame.size.height }
-    }
-}
-
-
 ///
 /// 放大镜视图，可以根据设置放大选择区域的视图
 /// 如果想要自己刷新，可以调用`setNeedsDisplay`方法来主动刷新放大镜视图
 ///
-
-
 
 
 /// 放大视图的形状的枚举类型
@@ -34,6 +18,7 @@ fileprivate extension UIView {
 /// - Round: 圆形
 /// - Square: 方形，默认
 /// - Custom: 用户自定义
+///
 public enum MagnifyingViewShap {
     case Round
     case Square
@@ -44,6 +29,9 @@ public class MagnifyingView: UIView {
     
     /// 需要放大的视图，必须设置的
     public var magnifyView:UIView!
+    
+    /// 在`magnifyView`上可以放大的最大区域，默认是`magnifyView`的大小
+    public var maxFrame:CGRect = CGRect.zero
     
     /// 缩放因子，默认2.0
     /// 注意不要太小，如果过小，会出现放大视图重叠的问题，需要关闭`exceptOutSide`属性
@@ -59,7 +47,7 @@ public class MagnifyingView: UIView {
             UIView.animate(withDuration: 0.25, animations: {
                 if newValue == .Round {
                     self.layer.masksToBounds = true
-                    self.layer.cornerRadius = min(self._width_, self._height_) / 2.0
+                    self.layer.cornerRadius = min(self.frame.size.width, self.frame.size.height) / 2.0
                 } else {
                     self.layer.cornerRadius = 0
                 }
@@ -94,25 +82,33 @@ public class MagnifyingView: UIView {
         super.draw(rect)
         
         if let location = self.touchLocation {
-            var trsx = -1 * (location.x + self._width_ / self.scaleFactor / 2.0)
-            var trsy = -1 * (location.y + self._height_ / self.scaleFactor / 2.0)
+            
+            let scaleWidth = self.frame.size.width / self.scaleFactor
+            let scaleHeight = self.frame.size.height / self.scaleFactor
+            
+            var trsx = -1 * (location.x + scaleWidth / 2.0)
+            var trsy = -1 * (location.y + scaleHeight / 2.0)
             
             // 对于超过边界的情况做处理，只展示放大视图内的内容
             if self.exceptOutSide {
-                if location.x <= self._width_ / self.scaleFactor / 2.0 {
-                    // 出了左边界
-                    trsx = -1 * self._width_ / self.scaleFactor
-                } else if location.x >= self.magnifyView._width_ - self._width_ / self.scaleFactor / 2.0 {
-                    // 出了右边界
-                    trsx = -1 * self.magnifyView._width_
+                if self.maxFrame.equalTo(CGRect.zero) || !self.magnifyView.bounds.contains(self.maxFrame) {
+                    self.maxFrame = self.magnifyView.bounds
                 }
                 
-                if location.y <= self._height_ / self.scaleFactor / 2.0 {
+                if location.x <= scaleWidth / 2.0 + self.maxFrame.origin.x {
+                    // 出了左边界
+                    trsx = -1 * scaleWidth - self.maxFrame.origin.x
+                } else if location.x >= self.maxFrame.maxX - scaleWidth / 2.0 {
+                    // 出了右边界
+                    trsx = -1 * self.maxFrame.maxX
+                }
+                
+                if location.y <= scaleHeight / 2.0 + self.maxFrame.origin.y {
                     // 出了上边界
-                    trsy = -1 * self._height_ / self.scaleFactor
-                } else if location.y >= self.magnifyView._height_ - self._height_ / self.scaleFactor / 2.0 {
+                    trsy = -1 * scaleHeight - self.maxFrame.origin.y
+                } else if location.y >= self.maxFrame.maxY - scaleHeight / 2.0 {
                     // 出了下边界
-                    trsy = -1 * self.magnifyView._height_
+                    trsy = -1 * self.maxFrame.maxY
                 }
             }
             
@@ -121,7 +117,7 @@ public class MagnifyingView: UIView {
             self.isHidden = true
             
             if let context = UIGraphicsGetCurrentContext() {
-                context.translateBy(x: self._width_, y: self._height_)
+                context.translateBy(x: self.frame.size.width, y: self.frame.size.height)
                 context.scaleBy(x: self.scaleFactor, y: self.scaleFactor)
                 context.translateBy(x: trsx, y: trsy)
                 self.magnifyView.layer.render(in: context)
